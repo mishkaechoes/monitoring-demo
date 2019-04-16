@@ -1,0 +1,45 @@
+version: '2'
+services:
+  postgres:
+    image: postgres:9.6
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=demo-db
+      - POSTGRES_USER=axon
+      - POSTGRES_PASSWORD=axon
+      - MAX_CONNECTIONS=300
+
+  zookeeper:
+    image: wurstmeister/zookeeper
+    ports:
+      - "2181:2181"
+  kafka:
+    build: .
+    links:
+     - zookeeper
+    ports:
+      - "9092:9092"
+      - "7071:7071"
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: localhost
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_OPTS: -javaagent:/usr/app/jmx_prometheus_javaagent.jar=7071:/usr/app/prom-jmx-agent-config.yml
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+  prometheus:
+    image: prom/prometheus
+    ports:
+      - 9090:9090/tcp
+    volumes:
+      - ./mount/prometheus:/etc/prometheus
+    links:
+      - kafka
+  grafana:
+        image: grafana/grafana:3.0.0-beta7
+        environment:
+            - GF_SECURITY_ADMIN_PASSWORD=pass
+        depends_on:
+            - prometheus
+        ports:
+            - "3000:3000"
